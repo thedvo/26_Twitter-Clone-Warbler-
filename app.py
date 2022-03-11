@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
+from forms import UserAddForm, LoginForm, MessageForm, EditUserForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -18,7 +18,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = False
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
 toolbar = DebugToolbarExtension(app)
 
@@ -114,7 +114,10 @@ def logout():
     """Handle logout of user."""
 
     # IMPLEMENT THIS
+    session.pop(CURR_USER_KEY)
 
+    flash(f"Logged out.", "success")
+    return redirect("/login")
 
 ##############################################################################
 # General user routes:
@@ -206,13 +209,40 @@ def stop_following(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
-
+############################################################
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
     """Update profile for current user."""
 
     # IMPLEMENT THIS
 
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect('/')
+
+    user = g.user
+    form = EditUserForm(obj=user)
+
+    if form.validate_on_submit():
+        if User.authenticate(user.username, form.password.data):
+
+            user.username = form.username.data
+            user.email = form.email.data
+            user.image_url = form.image_url.data or User.image_url.default.arg
+            user.header_image_url = form.header_image_url.data
+            user.bio = form.bio.data
+
+            db.session.commit()
+
+            flash("User profile successfully updated.", "success")
+
+            return redirect(f"/users/{user.id}")
+        
+        flash("Wrong password, please try again.", 'danger')
+
+    return render_template('users/edit.html', form=form, user_id=user.id)
+
+#############################################################
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
@@ -292,8 +322,13 @@ def homepage():
     """
 
     if g.user:
+        following_ids = [f.id for f in g.user.following] + [g.user.id] 
+        # takes the id's of the users that the logged in user is following and the current user's ID
+        # this makes it possible to filter the query so that we only show posts from users that the user is folling and the user's own posts in the homepage 
+
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_ids)) # only queries messages that meet these criteria 
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())

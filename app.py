@@ -170,7 +170,7 @@ def users_show(user_id):
                 .all())
 
     # shows the likes of the current user 
-    likes = [message.id for message in user.likes]
+    likes = [message.id for message in g.user.likes]
 
     return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
@@ -211,7 +211,7 @@ def add_follow(follow_id):
     g.user.following.append(followed_user)
     db.session.commit()
 
-    return redirect(f"/users/{g.user.id}/following")
+    return redirect(request.referrer)
 
 
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
@@ -226,7 +226,7 @@ def stop_following(follow_id):
     g.user.following.remove(followed_user)
     db.session.commit()
 
-    return redirect(f"/users/{g.user.id}/following")
+    return redirect(request.referrer)
 
 
 ###########################################################
@@ -240,6 +240,7 @@ def show_likes(user_id):
         return redirect('/')
 
     user = User.query.get_or_404(user_id)
+
     return render_template('users/likes.html', user=user, likes=user.likes)
 
 
@@ -268,15 +269,13 @@ def add_like(message_id):
 
     db.session.commit()
 
-    return redirect('/')
+    return redirect(request.referrer)
 
 
 ############################################################
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
     """Update profile for current user."""
-
-    # IMPLEMENT THIS
 
     if not g.user:
         flash("Access unauthorized.", "danger")

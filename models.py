@@ -1,5 +1,5 @@
 """SQLAlchemy models for Warbler."""
-from datetime import datetime
+import datetime
 
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
@@ -71,12 +71,12 @@ class User(db.Model):
 
     image_url = db.Column(
         db.Text,
-        default="/static/images/default-pic.png",
+        default="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
     )
 
     header_image_url = db.Column(
         db.Text,
-        default="/static/images/warbler-hero.jpg"
+        default="https://cdn.crispedge.com/305679.png"
     )
 
     bio = db.Column(
@@ -187,7 +187,7 @@ class Message(db.Model):
     timestamp = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow(),
+        default=datetime.datetime.now,
     )
 
     user_id = db.Column(
@@ -197,6 +197,11 @@ class Message(db.Model):
     )
 
     user = db.relationship('User')
+
+    @property
+    def friendly_date(self):
+        """Return nicely-formatted date."""
+        return self.timestamp.strftime("%b %-d, %Y @ %-I:%M %p")
 
 
 def connect_db(app):

@@ -14,7 +14,7 @@
 
               <div class="message-area">
                 <a href="/users/{{ msg.user.id }}">@{{ msg.user.username }}</a>
-                <span class="text-muted">{{ msg.timestamp.strftime('%d %B %Y') }}</span>
+                <span class="text-muted">{{ msg.friendly_date }}</span>
                 <p>{{ msg.text }}</p>
               </div>
 

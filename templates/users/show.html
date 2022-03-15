@@ -17,6 +17,18 @@
             <span class="text-muted">{{ message.timestamp.strftime('%d %B %Y') }}</span>
             <p>{{ message.text }}</p>
           </div>
+
+          {% if g.user.id != user.id %}
+            <form method="POST" action="/messages/{{ message.id }}/like" id="messages-form">
+              <button class="
+                btn 
+                btn-sm 
+                {{'btn-primary' if message.id in likes else 'btn-secondary'}}"
+              >
+                <i class="fa fa-thumbs-up"></i>
+              </button>
+            </form>
+            {% endif %}
         </li>
 
       {% endfor %}

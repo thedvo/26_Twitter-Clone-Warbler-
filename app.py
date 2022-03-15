@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
+from flask import Flask, render_template, request, flash, redirect, session, g, abort
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
@@ -17,7 +17,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
     os.environ.get('DATABASE_URL', 'postgresql:///warbler'))
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO'] = False
+app.config['SQLALCHEMY_ECHO'] = False 
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
 toolbar = DebugToolbarExtension(app)
@@ -29,12 +29,15 @@ connect_db(app)
 # User signup/login/logout
 
 
-@app.before_request
+@app.before_request   # This function is run before each request. 
 def add_user_to_g():
     """If we're logged in, add curr user to Flask global."""
 
     if CURR_USER_KEY in session:
         g.user = User.query.get(session[CURR_USER_KEY])
+        # if there is currently a logged in user, query that user 
+        # A common use for 'g' is to manage resources during a request. The g name stands for “global”, but that is referring to the data being global within a context.
+        # Use the session or a database to store data across requests. The application context is a good place to store common data during a request.
 
     else:
         g.user = None
@@ -65,6 +68,10 @@ def signup():
     and re-present form.
     """
 
+    if g.user:
+        flash("Already logged in. If you would like to make another account, please logout of the current account.", "danger")
+        return redirect("/")
+
     form = UserAddForm()
 
     if form.validate_on_submit():
@@ -78,7 +85,7 @@ def signup():
             db.session.commit()
 
         except IntegrityError:
-            flash("Username already taken", 'danger')
+            flash("Username already taken. Please try a different username.", 'danger')
             return render_template('users/signup.html', form=form)
 
         do_login(user)
@@ -93,6 +100,11 @@ def signup():
 def login():
     """Handle user login."""
 
+    if g.user: 
+        flash("You are currently logged in.", "danger")
+        return redirect("/")
+
+
     form = LoginForm()
 
     if form.validate_on_submit():
@@ -101,7 +113,7 @@ def login():
 
         if user:
             do_login(user)
-            flash(f"Hello, {user.username}!", "success")
+            flash(f"Welcome back, {user.username}!", "success")
             return redirect("/")
 
         flash("Invalid credentials.", 'danger')
@@ -113,10 +125,13 @@ def login():
 def logout():
     """Handle logout of user."""
 
-    # IMPLEMENT THIS
-    session.pop(CURR_USER_KEY)
+    if not g.user:
+        flash("You need to log in or sign up for an account.", "danger")
+        return redirect("/")
 
-    flash(f"Logged out.", "success")
+    do_logout() # this method is defined above
+
+    flash(f"You have successfully logged out.", "success")
     return redirect("/login")
 
 ##############################################################################
@@ -153,7 +168,11 @@ def users_show(user_id):
                 .order_by(Message.timestamp.desc())
                 .limit(100)
                 .all())
-    return render_template('users/show.html', user=user, messages=messages)
+
+    # shows the likes of the current user 
+    likes = [message.id for message in user.likes]
+
+    return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
 
 @app.route('/users/<int:user_id>/following')
@@ -209,6 +228,49 @@ def stop_following(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
+
+###########################################################
+# LIKE routes 
+@app.route('/users/<int:user_id>/likes')
+def show_likes(user_id):
+    """Shows list of the user's liked messages"""
+
+    if not g.user:
+        flash('Access unauthorized.', 'danger')
+        return redirect('/')
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user, likes=user.likes)
+
+
+@app.route('/messages/<int:message_id>/like', methods=['POST'])
+def add_like(message_id):
+    """Adds/Removes like from a message"""
+
+    if not g.user:
+        flash('Access unauthorized.', 'danger')
+        return redirect('/')
+
+    liked_message = Message.query.get_or_404(message_id)
+
+    # Checks if the message was created by the current user. If so, it will abort the request. 
+    if liked_message.user_id == g.user.id:
+        return abort(403) 
+        # aborts a request with an HTTP error code early
+    
+    user_likes = g.user.likes
+
+
+    if liked_message in user_likes:
+        g.user.likes = [like for like in user_likes if like != liked_message]
+    else: 
+        g.user.likes.append(liked_message)
+
+    db.session.commit()
+
+    return redirect('/')
+
+
 ############################################################
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
@@ -229,7 +291,8 @@ def profile():
             user.username = form.username.data
             user.email = form.email.data
             user.image_url = form.image_url.data or User.image_url.default.arg
-            user.header_image_url = form.header_image_url.data
+            user.header_image_url = form.header_image_url.data or User.header_image_url.default.arg
+            user.location = form.location.data
             user.bio = form.bio.data
 
             db.session.commit()
@@ -257,6 +320,8 @@ def delete_user():
     db.session.delete(g.user)
     db.session.commit()
 
+
+    flash('User has been deleted.' , "success")
     return redirect("/signup")
 
 
@@ -322,7 +387,7 @@ def homepage():
     """
 
     if g.user:
-        following_ids = [f.id for f in g.user.following] + [g.user.id] 
+        following_ids = [user.id for user in g.user.following] + [g.user.id] 
         # takes the id's of the users that the logged in user is following and the current user's ID
         # this makes it possible to filter the query so that we only show posts from users that the user is folling and the user's own posts in the homepage 
 
@@ -333,7 +398,9 @@ def homepage():
                     .limit(100)
                     .all())
 
-        return render_template('home.html', messages=messages)
+        liked_msg_ids = [msg.id for msg in g.user.likes]
+
+        return render_template('home.html', messages=messages, likes=liked_msg_ids)
 
     else:
         return render_template('home-anon.html')

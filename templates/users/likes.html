@@ -17,15 +17,18 @@
                 <span class="text-muted">{{ msg.friendly_date }}</span>
                 <p>{{ msg.text }}</p>
               </div>
-
+              
+              {% if g.user.id == user.id %}
               <form method="POST" action="/messages/{{ msg.id }}/like" id="messages-form">
                 <button class="
                               btn 
                               btn-sm 
                               btn-primary">
+                              
                   <i class="fa fa-thumbs-up"></i>
                 </button>
               </form>
+              {% endif %}
             </li>
           {% endfor %}
         </ul>

@@ -175,10 +175,14 @@ def users_show(user_id):
                 .limit(100)
                 .all())
 
-    # shows the likes of the current user 
-    likes = [message.id for message in g.user.likes]
+    # shows the likes of the current user
+    if g.user:
+        likes = [message.id for message in g.user.likes]
+        
+        return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
-    return render_template('users/show.html', user=user, messages=messages, likes=likes)
+    else:
+        return render_template('users/show.html', user=user, messages=messages)
 
 
 @app.route('/users/<int:user_id>/following')
@@ -217,7 +221,7 @@ def add_follow(follow_id):
     g.user.following.append(followed_user)
     db.session.commit()
 
-    return redirect(request.referrer)
+    return redirect(f"/users/{g.user.id}/following")
 
 
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
@@ -232,7 +236,7 @@ def stop_following(follow_id):
     g.user.following.remove(followed_user)
     db.session.commit()
 
-    return redirect(request.referrer)
+    return redirect(f"/users/{g.user.id}/following")
 
 
 ###########################################################
@@ -275,7 +279,7 @@ def add_like(message_id):
 
     db.session.commit()
 
-    return redirect(request.referrer)
+    return redirect('/')
 
 
 ############################################################

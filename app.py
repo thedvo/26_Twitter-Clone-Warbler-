@@ -18,7 +18,6 @@ uri = os.environ.get('DATABASE_URL', 'postgresql:///warbler')
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
-
 # Get DB_URI from environ variable (useful for production/testing) or,
 # if not set there, use development local db.
 app.config['SQLALCHEMY_DATABASE_URI'] = uri

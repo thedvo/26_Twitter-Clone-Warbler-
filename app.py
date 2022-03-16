@@ -1,4 +1,3 @@
-import os
 
 from flask import Flask, render_template, request, flash, redirect, session, g, abort
 from flask_debugtoolbar import DebugToolbarExtension
@@ -10,14 +9,12 @@ import os
 import re
 
 
-
-
 CURR_USER_KEY = "curr_user"
 
 app = Flask(__name__)
 
 
-uri = (os.environ.get('DATABASE_URL', 'postgresql:///warbler'))
+uri = os.environ.get('DATABASE_URL', 'postgresql:///warbler')
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 

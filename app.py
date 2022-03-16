@@ -224,6 +224,10 @@ def users_followers(user_id):
 def add_follow(follow_id):
     """Add a follow for the currently-logged-in user."""
 
+    if g.user.id == follow_id:
+        flash("You can't follow yourself!", "danger")
+        return redirect('/')
+
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
